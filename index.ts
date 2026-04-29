@@ -1,1 +1,3 @@
-console.log("Hello via Bun!");
+import { graphql } from "@octokit/graphql";
+
+console.log("graphql imported:", typeof graphql);
