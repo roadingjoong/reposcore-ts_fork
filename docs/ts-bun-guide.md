@@ -1,6 +1,147 @@
-# 타입스트립트 및 실행 환경 bun에 대한 안내
+# TypeScript 및 실행 환경 Bun 가이드
 
-## 앞에 다른 내용들?
+> 본 프로젝트는 Bun **1.3.13** 을 기준으로 작성되었습니다.
+> GitHub Codespaces 환경을 기준으로 설명합니다.
 
-## 테스트 자동화
-... ....
+---
+
+## 1. Bun이란?
+
+[Bun](https://bun.sh)은 JavaScript/TypeScript를 위한 고속 올인원 런타임입니다.
+Node.js 대신 TypeScript를 별도 컴파일 없이 직접 실행할 수 있으며,
+패키지 매니저(`bun install`), 테스트 러너(`bun test`), 번들러(`bun build`)를 모두 내장하고 있습니다.
+
+---
+
+## 2. Codespaces에서 Bun 설치
+
+Codespaces 환경에는 Bun이 기본적으로 설치되어 있지 않습니다.
+터미널을 열고 아래 명령으로 설치합니다.
+
+```bash
+curl -fsSL https://bun.sh/install | bash
+```
+
+설치 완료 후 터미널을 **새로 열거나** 아래 명령으로 즉시 적용합니다.
+
+```bash
+source ~/.bashrc
+```
+
+### 버전 확인
+
+```bash
+bun --version
+# 1.3.13
+```
+
+> **참고:** Codespaces를 재시작하면 Bun이 초기화되어 다시 설치해야 할 수 있습니다.
+> 매번 재설치가 번거롭다면 팀에서 `devcontainer.json`의 `postCreateCommand`에
+> 설치 명령을 등록하는 것을 고려하세요.
+
+---
+
+## 3. 의존성 설치
+
+프로젝트 루트 디렉터리에서 아래 명령을 실행합니다.
+
+```bash
+bun install
+```
+
+`bun.lock` 파일 기준으로 정확한 버전이 설치됩니다.
+
+> **주의:** 프로젝트에 `package-lock.json`과 `bun.lock`이 함께 존재하는 경우,
+> Bun은 `bun.lock`을 우선합니다. 패키지 관리는 **Bun으로만** 수행하세요.
+> npm을 혼용하면 lock 파일이 불일치할 수 있습니다.
+
+---
+
+## 4. TypeScript 파일 실행
+
+Bun은 TypeScript를 별도 컴파일 없이 직접 실행합니다.
+
+```bash
+bun run index.ts
+```
+
+`package.json`의 `scripts`에 등록된 명령도 동일하게 실행합니다.
+
+```bash
+bun run <스크립트명>
+```
+
+---
+
+## 5. 테스트 실행
+
+Bun 내장 테스트 러너를 사용합니다. Jest와 호환되는 API(`describe`, `test`, `expect`)를 그대로 사용할 수 있습니다.
+
+```bash
+# 전체 테스트 실행
+bun test
+
+# 특정 파일만 실행
+bun test src/github-service.test.ts
+```
+
+Bun이 자동으로 감지하는 테스트 파일 규칙:
+
+- `*.test.ts`
+- `*.spec.ts`
+- `__tests__/*.ts`
+
+---
+
+## 6. 패키지 추가 / 제거
+
+```bash
+# 패키지 추가
+bun add <패키지명>
+
+# 개발 의존성으로 추가
+bun add -d <패키지명>
+
+# 패키지 제거
+bun remove <패키지명>
+```
+
+---
+
+## 7. tsconfig.json 주의사항
+
+본 프로젝트의 `tsconfig.json`은 Bun 환경에 맞게 설정되어 있습니다.
+
+| 옵션 | 값 | 이유 |
+|---|---|---|
+| `module` | `Preserve` | Bun의 ESM 처리 방식에 최적화 |
+| `moduleResolution` | `bundler` | Bun 번들러 모드 사용 |
+| `types` | `["bun"]` | Bun 전용 타입(`Bun.file` 등) 사용 |
+| `noEmit` | `true` | Bun이 직접 실행하므로 JS 파일 출력 불필요 |
+
+타입 검사만 별도로 수행하려면 아래 명령을 사용합니다.
+
+```bash
+bunx tsc --noEmit
+```
+
+---
+
+## 8. 자주 사용하는 명령 요약
+
+| 명령 | 설명 |
+|---|---|
+| `bun install` | 의존성 설치 |
+| `bun run index.ts` | TypeScript 파일 직접 실행 |
+| `bun test` | 전체 테스트 실행 |
+| `bun add <pkg>` | 패키지 추가 |
+| `bun remove <pkg>` | 패키지 제거 |
+| `bunx tsc --noEmit` | 타입 검사만 수행 |
+
+---
+
+## 참고 자료
+
+- [Bun 공식 문서](https://bun.sh/docs)
+- [Bun 1.x 릴리즈 노트](https://bun.sh/blog)
+- [TypeScript 공식 문서](https://www.typescriptlang.org/docs/)
