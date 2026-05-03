@@ -106,3 +106,11 @@ bun run index.ts --help
 - CLI 개발 방식 통일
 - 유지보수성 향상
 - 개발자 간 협업 효율 증가
+
+---
+
+## 참고 문서
+
+- [cac GitHub Repository](https://github.com/cacjs/cac)
+- [cac npm Package](https://www.npmjs.com/package/cac)
+
