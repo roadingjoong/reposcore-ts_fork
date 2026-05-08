@@ -11,7 +11,9 @@
 Node.js 대신 TypeScript를 별도 컴파일 없이 직접 실행할 수 있으며,
 패키지 매니저(`bun install`), 테스트 러너(`bun test`), 번들러(`bun build`)를 모두 내장하고 있습니다.
 
-> **참고:** `bunx`는 `npx`와 유사한 패키지 실행 방식이며, 본 문서에서는 Bun 중심 개발 환경과 실행 방식의 일관성을 위해 `bun tsc` 기준 명령어를 사용합니다.
+> **참고:** bun과 bunx의 차이
+> - bun : 패키지 설치 및 프로젝트 실행 (`bun install`, `bun run` 등)
+> - bunx : 패키지를 일회성으로 실행하는 명령어 (`npx`와 유사)
 
 ---
 
