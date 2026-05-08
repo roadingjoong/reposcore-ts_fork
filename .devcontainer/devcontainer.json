@@ -6,7 +6,8 @@
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
         "EditorConfig.EditorConfig",
-        "mechatroner.rainbow-csv"
+        "mechatroner.rainbow-csv",
+        "vicius.tsdoc-gen"
       ]
     }
   },
