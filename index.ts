@@ -1,16 +1,5 @@
-import { graphql } from "@octokit/graphql";
 import { cac } from "cac";
-
-interface RepositoryStatsResponse {
-  repository: {
-    issues: {
-      totalCount: number;
-    };
-    pullRequests: {
-      totalCount: number;
-    };
-  };
-}
+import { createGitHubService } from "./github-service";
 
 const cli = cac("reposcore-ts");
 
@@ -33,7 +22,6 @@ cli
       return;
     }
 
-    // 2. 저장소 입력 여부 확인
     if (repos.length === 0) {
       console.error("오류: 최소 하나 이상의 저장소(owner/repo)를 입력해야 합니다.");
       cli.outputHelp();
@@ -44,11 +32,7 @@ cli
     console.log(`저장소: ${repos.join(", ")}`);
     console.log(`형식: ${options.format}`);
 
-    const githubGraphQL = graphql.defaults({
-      headers: {
-        authorization: `token ${token}`,
-      },
-    });
+    const githubService = createGitHubService(token);
 
     for (const repoPath of repos) {
       if (!repoPath.includes("/")) {
@@ -56,22 +40,12 @@ cli
         continue;
       }
 
-      const [owner, repoName] = repoPath.split("/");
+      const [owner, repoName] = repoPath.split("/") as [string, string];
 
       try {
-        const result = await githubGraphQL<RepositoryStatsResponse>(
-          `
-          query($owner: String!, $repo: String!) {
-            repository(owner: $owner, name: $repo) {
-              issues { totalCount }
-              pullRequests { totalCount }
-            }
-          }
-          `,
-          { owner, repo: repoName },
-        );
+        const stats = await githubService.getRepoStats(owner, repoName);
 
-        console.log(`[${repoPath}] 이슈: ${result.repository.issues.totalCount}, PR: ${result.repository.pullRequests.totalCount}`);
+        console.log(`[${repoPath}] 이슈: ${stats.issues}, PR: ${stats.pullRequests}`);
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         console.error(`오류: '${repoPath}'의 데이터를 가져올 수 없습니다.`);
