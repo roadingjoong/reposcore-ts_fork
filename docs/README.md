@@ -1,6 +1,7 @@
 # 프로젝트 운영 지침 및 개발 가이드
 
-> 점수 계산 공식 및 이슈/PR 작성 주의사항 등 공통 사항은
+> 점수 계산 공식, 이슈/PR 작성 주의사항, 도커 및 깃헙 사용법처럼
+> `reposcore-cs`와 공통으로 적용되는 내용은
 > [reposcore-cs 저장소](https://github.com/oss2026hnu/reposcore-cs)의 docs를 참고하세요.
 
 ## 문서 목록
