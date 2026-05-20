@@ -94,7 +94,102 @@ const score = calculateScore(3,2)
 
 ---
 
+## GTS (Google TypeScript Style)
+
+본 프로젝트는 코드 스타일 검사 및 자동 포맷팅을 위해 `gts`를 사용합니다.
+
+`gts`는 Google TypeScript Style Guide 기반 도구이며, 프로젝트 내 코드 스타일을 일관되게 유지하기 위한 ESLint 및 Prettier 설정을 제공합니다.
+
+### 프로젝트 스크립트
+
+`package.json`에는 다음 스크립트가 등록되어 있습니다.
+
+```json
+{
+  "scripts": {
+    "lint": "gts lint",
+    "fix": "gts fix",
+    "typecheck": "tsc --noEmit"
+  }
+}
+```
+
+### 코드 검사
+
+```bash
+bun run lint
+```
+
+실행 내용:
+
+- ESLint 기반 코드 스타일 검사 수행
+- 규칙 위반 여부 확인
+
+### 자동 수정
+
+```bash
+bun run fix
+```
+
+실행 내용:
+
+- ESLint 자동 수정 수행
+- Prettier 포맷 적용
+
+### 타입 검사
+
+```bash
+bun run typecheck
+```
+
+실행 내용:
+
+- TypeScript 타입 오류 확인
+
+### 프로젝트 설정 구조
+
+프로젝트는 gts 기본 설정 위에 추가 설정을 사용합니다.
+
+#### eslint.config.cjs
+
+현재 프로젝트:
+
+```js
+module.exports = [...customConfig, ...require('gts')];
+```
+
+역할:
+
+- `eslint.ignores.cjs` 존재 여부 확인
+- 프로젝트 ignore 규칙 적용
+- gts 기본 설정 추가
+
+#### .prettierrc.cjs
+
+현재 프로젝트:
+
+```js
+module.exports = {
+  ...require('gts/.prettierrc.json'),
+};
+```
+
+역할:
+
+- gts 기본 Prettier 설정 사용
+
+#### eslint.ignores.cjs
+
+역할:
+
+- ESLint 검사 제외 대상 관리
+
+---
+
 ## 참고 자료
 
 - [Google TypeScript Style Guide](https://google.github.io/styleguide/tsguide.html)
 - [TypeScript 공식 문서](https://www.typescriptlang.org/docs/)
+- [GTS 공식 저장소](https://github.com/google/gts)
+- [ESLint 공식 문서](https://eslint.org/docs/latest/)
+- [Prettier 공식 문서](https://prettier.io/docs/)
