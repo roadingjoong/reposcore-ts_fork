@@ -9,18 +9,6 @@ import type {
 
 import {loadCache, saveCache} from './cache';
 
-export interface RepoStats {
-  issues: number;
-  pullRequests: number;
-}
-
-interface RepositoryStatsResponse {
-  repository: {
-    issues: {totalCount: number};
-    pullRequests: {totalCount: number};
-  };
-}
-
 interface RawAuthor {
   login: string;
 }
@@ -61,8 +49,6 @@ interface DetailedRepoResponse {
 
 const PAGE_SIZE = 100;
 
-// 라벨 문자열을 ContributionLabel 카테고리로 정규화합니다.
-// 소문자 변환 후 하이픈/공백/언더스코어를 제거해 매칭합니다.
 export const normalizeLabel = (label: string): ContributionLabel => {
   const key = label.toLowerCase().replace(/[-_\s]/g, '');
   if (key === 'feat' || key === 'feature') return 'feature';
@@ -72,8 +58,6 @@ export const normalizeLabel = (label: string): ContributionLabel => {
   return 'none';
 };
 
-// 라벨 배열에서 첫 번째로 인식되는 ContributionLabel을 반환합니다.
-// 인식 가능한 라벨이 없으면 'none'을 반환합니다.
 export const categorizeLabels = (labels: string[]): ContributionLabel => {
   for (const label of labels) {
     const category = normalizeLabel(label);
@@ -120,8 +104,6 @@ const toPrRecord = (raw: RawPullRequest): PRRecord => {
   };
 };
 
-// GraphQL 응답을 DetailedRepoData로 변환합니다.
-// 응답에 라벨이 없거나 인식되지 않는 경우 category는 'none'으로 설정됩니다.
 export const mapDetailedRepoResponse = (
   response: DetailedRepoResponse,
 ): DetailedRepoData => {
@@ -134,7 +116,6 @@ export const mapDetailedRepoResponse = (
   };
 };
 
-// DetailedRepoData에서 카테고리별 개수를 집계합니다.
 export interface CategoryCounts {
   feature: number;
   bug: number;
@@ -153,9 +134,11 @@ export const countByCategory = (
     typo: 0,
     none: 0,
   };
+
   for (const record of records) {
     counts[record.category] += 1;
   }
+
   return counts;
 };
 
@@ -166,32 +149,6 @@ export const createGitHubService = (token: string) => {
     },
   });
 
-  const getRepoStats = async (
-    owner: string,
-    repo: string,
-  ): Promise<RepoStats> => {
-    const result = await githubGraphQL<RepositoryStatsResponse>(
-      `
-      query($owner: String!, $repo: String!) {
-        repository(owner: $owner, name: $repo) {
-          issues { totalCount }
-          pullRequests { totalCount }
-        }
-      }
-      `,
-      {owner, repo},
-    );
-
-    return {
-      issues: result.repository.issues.totalCount,
-      pullRequests: result.repository.pullRequests.totalCount,
-    };
-  };
-
-  // closed 이슈와 merged PR을 한 번의 GraphQL 요청으로 조회합니다.
-  // 라벨 정보를 포함하며, 응답 누락 시 안전하게 빈 값으로 처리됩니다.
-  // useCache=true(기본)이면 .cache/<owner>_<repo>.json을 읽어 재사용하고,
-  // 캐시가 없거나 useCache=false이면 API를 호출한 뒤 결과를 저장합니다.
   const getDetailedRepoData = async (
     owner: string,
     repo: string,
@@ -243,7 +200,6 @@ export const createGitHubService = (token: string) => {
   };
 
   return {
-    getRepoStats,
     getDetailedRepoData,
   };
 };

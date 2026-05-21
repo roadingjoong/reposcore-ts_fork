@@ -38,7 +38,7 @@ cli
           ? Bun.env.GITHUB_TOKEN || ''
           : options.token || '';
       const format = String(options.format || '').toLowerCase();
-      const useCache = options.cache; // --no-cache 전달 시 false
+      const useCache = options.cache;
       const errors: string[] = [];
       const parsedRepos: {
         repoPath: string;
@@ -93,13 +93,10 @@ cli
 
       for (const {repoPath, owner, repoName} of parsedRepos) {
         try {
-          const [stats, detailed] = await Promise.all([
-            githubService.getRepoStats(owner, repoName),
-            githubService.getDetailedRepoData(owner, repoName, useCache),
-          ]);
-
-          console.log(
-            `[${repoPath}] 이슈: ${stats.issues}, PR: ${stats.pullRequests}`,
+          const detailed = await githubService.getDetailedRepoData(
+            owner,
+            repoName,
+            useCache,
           );
 
           repoDataList.push(
@@ -111,6 +108,7 @@ cli
             const issueCounts = countByCategory(detailed.issues);
             const featurePrCount = prCounts.feature + prCounts.bug;
             const featureIssueCount = issueCounts.feature + issueCounts.bug;
+
             console.log(`[${repoPath}]`);
             console.log(
               `Merged PRs - feature: ${featurePrCount}, docs: ${prCounts.doc}, typo: ${prCounts.typo}`,
@@ -131,15 +129,18 @@ cli
 
       if (format === 'csv') {
         const userScores = ScoreCalculator.calculateUserScores(repoDataList);
+
         console.log(
           'userId,prFeatureBug,prDocs,prTypo,issueFeatureBug,issueDocs,totalScore',
         );
+
         for (const user of userScores) {
           let prFeatureBug = 0;
           let prDocs = 0;
           let prTypo = 0;
           let issueFeatureBug = 0;
           let issueDocs = 0;
+
           for (const repo of user.repoScores) {
             for (const data of repo.scoreData) {
               prFeatureBug += data.prFeatureBug;
@@ -149,6 +150,7 @@ cli
               issueDocs += data.issueDocs;
             }
           }
+
           console.log(
             `${user.userId},${prFeatureBug},${prDocs},${prTypo},${issueFeatureBug},${issueDocs},${user.totalScore}`,
           );
