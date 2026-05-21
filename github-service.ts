@@ -2,11 +2,6 @@ import {graphql} from '@octokit/graphql';
 import {loadCache, saveCache} from './cache';
 import type {ContributionKind} from './score-calculator';
 
-export interface RepoStats {
-  issues: number;
-  pullRequests: number;
-}
-
 // score-calculator.ts 의 ContributionKind(doc 단수형)를 그대로 재사용해
 // 도메인 용어를 통일합니다. 미인식 라벨은 'none'으로만 확장합니다.
 export type ContributionLabel = ContributionKind | 'none';
@@ -39,13 +34,6 @@ export interface IssueRecord {
 export interface DetailedRepoData {
   prs: PRRecord[];
   issues: IssueRecord[];
-}
-
-interface RepositoryStatsResponse {
-  repository: {
-    issues: {totalCount: number};
-    pullRequests: {totalCount: number};
-  };
 }
 
 interface RawAuthor {
@@ -193,28 +181,6 @@ export const createGitHubService = (token: string) => {
     },
   });
 
-  const getRepoStats = async (
-    owner: string,
-    repo: string,
-  ): Promise<RepoStats> => {
-    const result = await githubGraphQL<RepositoryStatsResponse>(
-      `
-      query($owner: String!, $repo: String!) {
-        repository(owner: $owner, name: $repo) {
-          issues { totalCount }
-          pullRequests { totalCount }
-        }
-      }
-      `,
-      {owner, repo},
-    );
-
-    return {
-      issues: result.repository.issues.totalCount,
-      pullRequests: result.repository.pullRequests.totalCount,
-    };
-  };
-
   // closed 이슈와 merged PR을 한 번의 GraphQL 요청으로 조회합니다.
   // 라벨 정보를 포함하며, 응답 누락 시 안전하게 빈 값으로 처리됩니다.
   // useCache=true(기본)이면 .cache/<owner>_<repo>.json을 읽어 재사용하고,
@@ -270,7 +236,6 @@ export const createGitHubService = (token: string) => {
   };
 
   return {
-    getRepoStats,
     getDetailedRepoData,
   };
 };

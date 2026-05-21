@@ -1,9 +1,13 @@
 import {cac} from 'cac';
-import {countByCategory, createGitHubService} from './github-service';
+import {createGitHubService} from './github-service';
+import type {DetailedRepoData} from './github-service';
+import {summarizeRepo, writeOutputFiles} from './output';
+import type {RepoSummary} from './output';
 
 const cli = cac('reposcore-ts');
 
-const supportedFormats = ['csv', 'txt'];
+const supportedFormats = ['csv', 'txt'] as const;
+type SupportedFormat = (typeof supportedFormats)[number];
 
 function parseRepoPath(repoPath: string) {
   const parts = repoPath.split('/');
@@ -51,7 +55,7 @@ cli
         );
       }
 
-      if (!supportedFormats.includes(format)) {
+      if (!supportedFormats.includes(format as SupportedFormat)) {
         errors.push(
           `오류: 지원하지 않는 출력 형식 '${options.format}'입니다. csv 또는 txt를 입력하세요.`,
         );
@@ -87,36 +91,17 @@ cli
         process.exit(1);
       }
 
-      console.log('분석 기능 구현 중입니다.');
-      console.log(`저장소: ${repos.join(', ')}`);
-      console.log(`형식: ${format}`);
+      console.error(`형식: ${format}`);
+      console.error(`저장소: ${repos.join(', ')}`);
 
       const githubService = createGitHubService(token);
+      const summaries: RepoSummary[] = [];
 
       for (const {repoPath, owner, repoName} of parsedRepos) {
         try {
-          const [stats, detailed] = await Promise.all([
-            githubService.getRepoStats(owner, repoName),
-            githubService.getDetailedRepoData(owner, repoName, useCache),
-          ]);
-
-          console.log(
-            `[${repoPath}] 이슈: ${stats.issues}, PR: ${stats.pullRequests}`,
-          );
-
-          if (format === 'txt') {
-            const prCounts = countByCategory(detailed.prs);
-            const issueCounts = countByCategory(detailed.issues);
-            const featurePrCount = prCounts.feature + prCounts.bug;
-            const featureIssueCount = issueCounts.feature + issueCounts.bug;
-            console.log(`[${repoPath}]`);
-            console.log(
-              `Merged PRs - feature: ${featurePrCount}, docs: ${prCounts.doc}, typo: ${prCounts.typo}`,
-            );
-            console.log(
-              `Closed Issues - feature: ${featureIssueCount}, docs: ${issueCounts.doc}`,
-            );
-          }
+          const detailed: DetailedRepoData =
+            await githubService.getDetailedRepoData(owner, repoName, useCache);
+          summaries.push(summarizeRepo(repoPath, detailed));
         } catch (error: unknown) {
           const errorMessage =
             error instanceof Error ? error.message : String(error);
@@ -125,6 +110,12 @@ cli
           console.error(`상세 원인: ${errorMessage}`);
           process.exit(1);
         }
+      }
+
+      const written = await writeOutputFiles(format as SupportedFormat, summaries);
+      console.error(`CSV 저장: ${written.csv}`);
+      if ('txt' in written) {
+        console.error(`TXT 저장: ${written.txt}`);
       }
     },
   );

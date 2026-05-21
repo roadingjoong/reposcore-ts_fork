@@ -96,3 +96,6 @@ bun-debug.log*
 
 # 실수로 npm 같은 거 돌려서 나오는 파일 무시
 package-lock.json
+
+# CLI 분석 결과 출력 디렉토리
+output/
