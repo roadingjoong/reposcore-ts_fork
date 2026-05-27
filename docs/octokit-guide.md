@@ -293,7 +293,7 @@ for (const result of results) {
 
 **API Rate Limit**
 
-GitHub API는 요청 수에 제한이 있습니다. 병렬 요청 수가 많을 경우 rate limit에 도달할 수 있으므로, 요청 수를 적절히 분산하거나 `graphql-request`의 응답 헤더에서 남은 한도를 확인하는 것이 좋습니다.
+GitHub API는 요청 수에 제한이 있습니다. 병렬 요청 수가 많을 경우 rate limit에 도달할 수 있으므로, 요청 수를 적절히 분산하거나 `@octokit/graphql`의 응답 헤더에서 남은 한도를 확인하는 것이 좋습니다.
 
 **독립적인 요청에만 적용**
 
