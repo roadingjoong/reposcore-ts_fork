@@ -37,8 +37,14 @@ interface PullRequestPageResponse {
 
 const PAGE_SIZE = 100;
 
-// 라벨 문자열을 ContributionLabel 카테고리로 정규화합니다.
-// 소문자 변환 후 하이픈/공백/언더스코어를 제거해 매칭합니다.
+/**
+ * 라벨 문자열을 ContributionLabel 카테고리로 정규화합니다.
+ * * 소문자 변환 후 하이픈, 공백, 언더스코어를 제거하여 매칭합니다.
+ * 인식되지 않는 라벨인 경우 'none'을 반환합니다.
+ *
+ * @param label 정규화할 원본 라벨 문자열
+ * @returns 정규화된 ContributionLabel 카테고리 종류
+ */
 export const normalizeLabel = (label: string): ContributionLabel => {
   const key = label.toLowerCase().replace(/[-_\s]/g, '');
   if (key === 'feat' || key === 'feature') return 'feature';
@@ -48,8 +54,15 @@ export const normalizeLabel = (label: string): ContributionLabel => {
   return 'none';
 };
 
-// 라벨 배열에서 첫 번째로 인식되는 ContributionLabel을 반환합니다.
-// 인식 가능한 라벨이 없으면 'none'을 반환합니다.
+/**
+ * 라벨 배열에서 첫 번째로 인식되는 ContributionLabel을 반환합니다.
+ *
+ * 배열을 순회하며 인식 가능한 유효 라벨이 발견되면 즉시 반환하고,
+ * 유효한 라벨이 하나도 없으면 'none'을 반환합니다.
+ *
+ * @param labels 검사할 원본 라벨 문자열 배열
+ * @returns 분류된 첫 번째 유효 ContributionLabel 카테고리
+ */
 export const categorizeLabels = (labels: string[]): ContributionLabel => {
   for (const label of labels) {
     const category = normalizeLabel(label);
@@ -60,11 +73,25 @@ export const categorizeLabels = (labels: string[]): ContributionLabel => {
   return 'none';
 };
 
-const extractLabelNames = (labels: {nodes: {name: string}[]} | null): string[] => {
+/**
+ * GitHub API 응답 객체에서 라벨 이름들만 문자열 배열로 추출합니다.
+ *
+ * @param labels GraphQL 응답에서 받아온 라벨 노드 객체 또는 null
+ * @returns 추출된 라벨 이름 문자열 배열
+ */
+const extractLabelNames = (
+  labels: {nodes: {name: string}[]} | null,
+): string[] => {
   if (!labels || !labels.nodes) return [];
   return labels.nodes.map(node => node.name).filter(name => Boolean(name));
 };
 
+/**
+ * GraphQL로 받아온 원본 이슈 데이터를 시스템 표준 IssueRecord 형식으로 변환합니다.
+ *
+ * @param raw 라벨 가공 전의 원본 이슈 데이터
+ * @returns 카테고리 정보가 포함되어 가공된 IssueRecord 객체
+ */
 const toIssueRecord = (raw: RawIssue): IssueRecord => {
   return {
     ...raw,
@@ -72,6 +99,12 @@ const toIssueRecord = (raw: RawIssue): IssueRecord => {
   };
 };
 
+/**
+ * GraphQL로 받아온 원본 Pull Request 데이터를 시스템 표준 PRRecord 형식으로 변환합니다.
+ *
+ * @param raw 라벨 가공 전의 원본 Pull Request 데이터
+ * @returns 카테고리 정보가 포함되어 가공된 PRRecord 객체
+ */
 const toPrRecord = (raw: RawPullRequest): PRRecord => {
   return {
     ...raw,
@@ -87,7 +120,12 @@ export interface CategoryCounts {
   typo: number;
   none: number;
 }
-
+/**
+ * 데이터 목록에서 각 기여 카테고리(Feature, Bug, Doc 등)별 발생 개수를 집계합니다.
+ *
+ * @param records 카테고리 정보가 포함된 기여 데이터 배열
+ * @returns 카테고리별 집계 개수가 담긴 CategoryCounts 객체
+ */
 export const countByCategory = (
   records: ReadonlyArray<{category: ContributionLabel}>,
 ): CategoryCounts => {
@@ -104,6 +142,12 @@ export const countByCategory = (
   return counts;
 };
 
+/**
+ * GitHub GraphQL API 통신을 담당하는 GitHub 서비스 인스턴스를 생성합니다.
+ *
+ * @param token GitHub API 호출에 사용할 개인 접근 토큰 (Personal Access Token)
+ * @returns 저장소 데이터 조회가 가능한 기능 객체
+ */
 export const createGitHubService = (token: string) => {
   const githubGraphQL = graphql.defaults({
     headers: {
@@ -111,6 +155,14 @@ export const createGitHubService = (token: string) => {
     },
   });
 
+  /**
+   * 대상 저장소에서 닫힌(CLOSED) 상태의 모든 이슈 데이터를 조회합니다.
+   * * GraphQL 기반의 cursor 페이지네이션을 이용하여 모든 페이지의 데이터를 순회 수집합니다.
+   *
+   * @param owner 저장소 소유자 ID 혹은 조직명
+   * @param repo 저장소 이름
+   * @returns 가공된 전체 IssueRecord 데이터 배열
+   */
   const getAllClosedIssues = async (
     owner: string,
     repo: string,
@@ -122,7 +174,7 @@ export const createGitHubService = (token: string) => {
     while (hasNextPage) {
       const response: IssuePageResponse =
         await githubGraphQL<IssuePageResponse>(
-        `
+          `
         query(
           $owner: String!
           $repo: String!
@@ -154,8 +206,8 @@ export const createGitHubService = (token: string) => {
           }
         }
         `,
-        {owner, repo, pageSize: PAGE_SIZE, cursor},
-      );
+          {owner, repo, pageSize: PAGE_SIZE, cursor},
+        );
 
       const connection: IssuePageResponse['repository']['issues'] =
         response.repository.issues;
@@ -169,6 +221,15 @@ export const createGitHubService = (token: string) => {
     return issues;
   };
 
+  /**
+   * 대상 저장소에서 병합된(MERGED) 상태의 모든 Pull Request 데이터를 조회합니다.
+   *
+   * GraphQL 기반의 cursor 페이지네이션을 이용하여 모든 페이지의 데이터를 순회 수집합니다.
+   *
+   * @param owner 저장소 소유자 ID 혹은 조직명
+   * @param repo 저장소 이름
+   * @returns 가공된 전체 PRRecord 데이터 배열
+   */
   const getAllMergedPullRequests = async (
     owner: string,
     repo: string,
@@ -179,8 +240,8 @@ export const createGitHubService = (token: string) => {
 
     while (hasNextPage) {
       const response: PullRequestPageResponse =
-       await githubGraphQL<PullRequestPageResponse>(
-        `
+        await githubGraphQL<PullRequestPageResponse>(
+          `
         query(
           $owner: String!
           $repo: String!
@@ -213,11 +274,11 @@ export const createGitHubService = (token: string) => {
           }
         }
         `,
-        {owner, repo, pageSize: PAGE_SIZE, cursor},
-      );
+          {owner, repo, pageSize: PAGE_SIZE, cursor},
+        );
 
       const connection: PullRequestPageResponse['repository']['pullRequests'] =
-       response.repository.pullRequests;
+        response.repository.pullRequests;
 
       prs.push(...connection.nodes.map(toPrRecord));
 
@@ -228,9 +289,17 @@ export const createGitHubService = (token: string) => {
     return prs;
   };
 
-  // closed 이슈와 merged PR을 각각 cursor 기반 페이지네이션으로 조회합니다.
-  // useCache=true(기본)이면 .cache/<owner>_<repo>.json을 읽어 재사용하고,
-  // 캐시가 없거나 useCache=false이면 API를 호출한 뒤 결과를 저장합니다.
+  /**
+   * Closed 이슈와 Merged PR 데이터를 각각 cursor 기반 페이지네이션으로 통합 조회합니다.
+   *
+   * useCache 가 true(기본값)인 경우 로컬 캐시 파일(.cache/<owner>_<repo>.json)을 우선적으로 확인하며,
+   * 캐시가 없거나 useCache 가 false인 경우에만 GitHub API를 원격 호출한 후 결과를 다시 캐싱합니다.
+   *
+   * @param owner 저장소 소유자 ID 혹은 조직명
+   * @param repo 저장소 이름
+   * @param useCache 파일 캐시 시스템 적용 여부 (기본값: true)
+   * @returns 이슈와 PR 데이터가 통합된 DetailedRepoData 객체
+   */
   const getDetailedRepoData = async (
     owner: string,
     repo: string,
