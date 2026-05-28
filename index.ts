@@ -12,6 +12,10 @@ cli.version(pkg.version);
 const supportedFormats = ['csv', 'txt'] as const;
 type SupportedFormat = (typeof supportedFormats)[number];
 
+type DetailedRepoData = Awaited<
+  ReturnType<ReturnType<typeof createGitHubService>['getDetailedRepoData']>
+>;
+
 function parseRepoPath(repoPath: string) {
   const parts = repoPath.split('/');
 
@@ -25,6 +29,77 @@ function parseRepoPath(repoPath: string) {
   };
 }
 
+function parseDateOption(value: string, optionName: '--since' | '--until') {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+
+  if (!match) {
+    throw new Error(
+      `오류: ${optionName} 값은 YYYY-MM-DD 형식의 유효한 날짜여야 합니다.`,
+    );
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+
+  const date =
+    optionName === '--since'
+      ? new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0))
+      : new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    throw new Error(
+      `오류: ${optionName} 값은 YYYY-MM-DD 형식의 유효한 날짜여야 합니다.`,
+    );
+  }
+
+  return date;
+}
+
+function isInRange(date: Date, since?: Date, until?: Date) {
+  if (since && date < since) {
+    return false;
+  }
+
+  if (until && date > until) {
+    return false;
+  }
+
+  return true;
+}
+
+function filterDetailedRepoDataByDateRange(
+  data: DetailedRepoData,
+  since?: Date,
+  until?: Date,
+): DetailedRepoData {
+  if (!since && !until) {
+    return data;
+  }
+
+  return {
+    ...data,
+    issues: data.issues.filter((issue) => {
+      if (!issue.closedAt) {
+        return false;
+      }
+
+      return isInRange(new Date(issue.closedAt), since, until);
+    }),
+    prs: data.prs.filter((pr) => {
+      if (!pr.mergedAt) {
+        return false;
+      }
+
+      return isInRange(new Date(pr.mergedAt), since, until);
+    }),
+  };
+}
+
 cli
   .command('[...repos]', '대상 저장소 목록 (예: owner/repo1 owner/repo2)')
   .option('--token <token>', 'GitHub Personal Access Token', {
@@ -34,10 +109,18 @@ cli
     default: 'csv',
   })
   .option('--no-cache', '캐시를 무시하고 GitHub API를 새로 호출합니다')
+  .option('--since <date>', '점수 계산에 포함할 시작 날짜(YYYY-MM-DD)')
+  .option('--until <date>', '점수 계산에 포함할 종료 날짜(YYYY-MM-DD)')
   .action(
     async (
       repos: string[],
-      options: {token?: string; format: string; cache: boolean},
+      options: {
+        token?: string;
+        format: string;
+        cache: boolean;
+        since?: string;
+        until?: string;
+      },
     ) => {
       const token =
         options.token === '$GITHUB_TOKEN'
@@ -51,6 +134,9 @@ cli
         owner: string;
         repoName: string;
       }[] = [];
+
+      let since: Date | undefined;
+      let until: Date | undefined;
 
       if (!token) {
         errors.push(
@@ -68,6 +154,22 @@ cli
         errors.push(
           '오류: 최소 하나 이상의 저장소(owner/repo)를 입력해야 합니다.',
         );
+      }
+
+      try {
+        if (options.since) {
+          since = parseDateOption(options.since, '--since');
+        }
+
+        if (options.until) {
+          until = parseDateOption(options.until, '--until');
+        }
+
+        if (since && until && since > until) {
+          errors.push('오류: --since는 --until보다 늦을 수 없습니다.');
+        }
+      } catch (error: unknown) {
+        errors.push(error instanceof Error ? error.message : String(error));
       }
 
       for (const repoPath of repos) {
@@ -109,12 +211,18 @@ cli
             useCache,
           );
 
-          const repoData = ScoreCalculator.calculateRepoData(
+          const filteredDetailed = filterDetailedRepoDataByDateRange(
             detailed,
+            since,
+            until,
+          );
+
+          const repoData = ScoreCalculator.calculateRepoData(
+            filteredDetailed,
             owner,
             repoName,
           );
-          const repoSummary = summarizeRepo(repoPath, detailed);
+          const repoSummary = summarizeRepo(repoPath, filteredDetailed);
 
           repoDataList.push(repoData);
           repoSummaries.push(repoSummary);
