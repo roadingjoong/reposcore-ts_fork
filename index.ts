@@ -1,5 +1,5 @@
 import {cac} from 'cac';
-import pkg from './package.json' assert {type: 'json'};
+import pkg from './package.json' with {type: 'json'};
 
 import {createGitHubService} from './github-service';
 import {ScoreCalculator, type RepoData} from './score-calculator';
@@ -83,14 +83,14 @@ function filterDetailedRepoDataByDateRange(
 
   return {
     ...data,
-    issues: data.issues.filter((issue) => {
+    issues: data.issues.filter(issue => {
       if (!issue.closedAt) {
         return false;
       }
 
       return isInRange(new Date(issue.closedAt), since, until);
     }),
-    prs: data.prs.filter((pr) => {
+    prs: data.prs.filter(pr => {
       if (!pr.mergedAt) {
         return false;
       }
