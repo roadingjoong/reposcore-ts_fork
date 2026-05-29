@@ -20,7 +20,7 @@ interface PageInfo {
 interface IssuePageResponse {
   repository: {
     issues: {
-      nodes: RawIssue[];
+      nodes: (RawIssue & {stateReason: string | null})[];
       pageInfo: PageInfo;
     };
   };
@@ -47,7 +47,7 @@ const PAGE_SIZE = 100;
  */
 export const normalizeLabel = (label: string): ContributionLabel => {
   const key = label.toLowerCase().replace(/[-_\s]/g, '');
-  if (key === 'feat' || key === 'feature') return 'feature';
+  if (key === 'feat' || key === 'feature' || key === 'enhancement') return 'feature';
   if (key === 'bug') return 'bug';
   if (key === 'doc' || key === 'docs' || key === 'documentation') return 'doc';
   if (key === 'typo') return 'typo';
@@ -155,15 +155,16 @@ export const createGitHubService = (token: string) => {
     },
   });
 
+  
   /**
-   * 대상 저장소에서 닫힌(CLOSED) 상태의 모든 이슈 데이터를 조회합니다.
+   * 대상 저장소에서 모든 이슈 데이터를 조회합니다.
    * * GraphQL 기반의 cursor 페이지네이션을 이용하여 모든 페이지의 데이터를 순회 수집합니다.
    *
    * @param owner 저장소 소유자 ID 혹은 조직명
    * @param repo 저장소 이름
    * @returns 가공된 전체 IssueRecord 데이터 배열
    */
-  const getAllClosedIssues = async (
+  const getAllIssues = async (
     owner: string,
     repo: string,
   ): Promise<IssueRecord[]> => {
@@ -185,7 +186,6 @@ export const createGitHubService = (token: string) => {
             issues(
               first: $pageSize
               after: $cursor
-              states: CLOSED
               orderBy: {field: CREATED_AT, direction: DESC}
             ) {
               nodes {
@@ -193,6 +193,7 @@ export const createGitHubService = (token: string) => {
                 title
                 url
                 state
+                stateReason
                 createdAt
                 closedAt
                 author { login }
@@ -212,7 +213,12 @@ export const createGitHubService = (token: string) => {
       const connection: IssuePageResponse['repository']['issues'] =
         response.repository.issues;
 
-      issues.push(...connection.nodes.map(toIssueRecord));
+      // 'not planned'와 'duplicate' 사유로 닫힌 이슈를 필터링합니다.
+      const validNodes = connection.nodes.filter(
+        node => node.stateReason === 'COMPLETED'
+      );
+
+      issues.push(...validNodes.map(toIssueRecord));
 
       cursor = connection.pageInfo.endCursor;
       hasNextPage = connection.pageInfo.hasNextPage && cursor !== null;
@@ -309,7 +315,7 @@ export const createGitHubService = (token: string) => {
     if (cached) return cached.data;
 
     const [issues, prs] = await Promise.all([
-      getAllClosedIssues(owner, repo),
+      getAllIssues(owner, repo),
       getAllMergedPullRequests(owner, repo),
     ]);
 

@@ -1,5 +1,5 @@
-import {cac} from 'cac';
-import pkg from './package.json' assert {type: 'json'};
+import { cac } from "cac";
+import pkg from "./package.json" with { type: "json"};
 
 import {createGitHubService} from './github-service';
 import {ScoreCalculator, type RepoData} from './score-calculator';
