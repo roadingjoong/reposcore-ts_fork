@@ -1,5 +1,5 @@
-import { cac } from "cac";
-import pkg from "./package.json" with { type: "json"};
+import {cac} from 'cac';
+import pkg from './package.json' with {type: 'json'};
 
 import {createGitHubService} from './github-service';
 import {ScoreCalculator, type RepoData} from './score-calculator';
@@ -33,11 +33,19 @@ cli
   .option('--format <format>', '출력 형식 (csv, txt)', {
     default: 'csv',
   })
+  .option('--output-dir <path>', '결과 파일을 저장할 디렉터리', {
+    default: 'output',
+  })
   .option('--no-cache', '캐시를 무시하고 GitHub API를 새로 호출합니다')
   .action(
     async (
       repos: string[],
-      options: {token?: string; format: string; cache: boolean},
+      options: {
+        token?: string;
+        format: string;
+        cache: boolean;
+        outputDir?: string;
+      },
     ) => {
       const token =
         options.token === '$GITHUB_TOKEN'
@@ -45,6 +53,7 @@ cli
           : options.token || '';
       const format = String(options.format || '').toLowerCase();
       const useCache = options.cache; // --no-cache 전달 시 false
+      const outputDir = options.outputDir || 'output';
       const errors: string[] = [];
       const parsedRepos: {
         repoPath: string;
@@ -129,7 +138,7 @@ cli
               userScores: singleUserScores,
               repoSummaries: [repoSummary],
             },
-            'output',
+            outputDir,
             subDir,
           );
           console.error(`[${repoPath}] CSV 저장: ${written.csv}`);
@@ -149,10 +158,14 @@ cli
       if (parsedRepos.length >= 2) {
         const userScores = ScoreCalculator.calculateUserScores(repoDataList);
 
-        const written = await writeOutputFiles(format as SupportedFormat, {
-          userScores,
-          repoSummaries,
-        });
+        const written = await writeOutputFiles(
+          format as SupportedFormat,
+          {
+            userScores,
+            repoSummaries,
+          },
+          outputDir,
+        );
         console.error(`[합산] CSV 저장: ${written.csv}`);
         if ('txt' in written) {
           console.error(`[합산] TXT 저장: ${written.txt}`);
