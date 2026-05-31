@@ -39,11 +39,11 @@ jobs:
         env:
           LANG: ko_KR.UTF-8
           LC_ALL: ko_KR.UTF-8
-        run: make
+        run: make synopsis
 
       - name: Verify README.md synopsis is up to date
         run: |
           if ! git diff --exit-code -- README.md; then
-            echo "::error::README.md synopsis is out of sync. Please run 'make' locally and commit the changes."
+            echo "::error::README.md synopsis is out of sync. Please run 'make synopsis' locally and commit the changes."
             exit 1
           fi
