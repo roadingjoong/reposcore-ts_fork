@@ -5,7 +5,7 @@ import type {
   DetailedRepoData,
   IssueRecord,
   PRRecord,
-} from '../types';
+} from './types';
 
 import {loadCache, saveCache} from './cache';
 

@@ -1,5 +1,5 @@
 import {describe, test, expect} from 'bun:test';
-import {ScoreCalculator, type RepoData} from '../src/core/score-calculator';
+import {ScoreCalculator, type RepoData} from '../src/score-calculator';
 import type {DetailedRepoData} from '../src/types';
 
 /**
