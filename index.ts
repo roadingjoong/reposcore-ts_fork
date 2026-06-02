@@ -9,6 +9,8 @@ import {
 import {
   summarizeRepo,
   writeOutputFiles,
+  supportedFormats,
+  type SupportedFormat,
   type RepoSummary,
 } from './src/output';
 import {
@@ -21,9 +23,6 @@ import {
 
 const cli = cac('reposcore-ts');
 cli.version(pkg.version);
-
-const supportedFormats = ['csv', 'txt'] as const;
-type SupportedFormat = (typeof supportedFormats)[number];
 
 function parseRepoPath(repoPath: string) {
   const parts = repoPath.split('/');
