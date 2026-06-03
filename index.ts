@@ -2,8 +2,14 @@ import {cac} from 'cac';
 import pkg from './package.json' with {type: 'json'};
 
 import {createGitHubService} from './src/github-service';
-import { ScoreCalculator, type RepoData } from './src/score-calculator';
-import { summarizeRepo, writeOutputFiles, supportedFormats, type SupportedFormat, type RepoSummary } from './src/output';
+import {ScoreCalculator, type RepoData} from './src/score-calculator';
+import {
+  summarizeRepo,
+  writeOutputFiles,
+  supportedFormats,
+  type SupportedFormat,
+  type RepoSummary,
+} from './src/output';
 import {
   sortUserScores,
   supportedSortBys,
@@ -62,7 +68,11 @@ cli
         options.token === '$GITHUB_TOKEN'
           ? Bun.env.GITHUB_TOKEN || ''
           : options.token || '';
-      const format = String(options.format || '').toLowerCase();
+      const formats = String(options.format || 'csv')
+        .toLowerCase()
+        .split(',')
+        .map(format => format.trim())
+        .filter(Boolean);
       const useCache = options.cache; // --no-cache 전달 시 false
       const outputDir = options.outputDir || 'output';
       const sortBy = String(options.sortBy || 'score').toLowerCase();
@@ -80,9 +90,13 @@ cli
         );
       }
 
-      if (!supportedFormats.includes(format as SupportedFormat)) {
+      const invalidFormats = formats.filter(
+        format => !supportedFormats.includes(format as SupportedFormat),
+      );
+
+      if (invalidFormats.length > 0) {
         errors.push(
-          `오류: 지원하지 않는 출력 형식 '${options.format}'입니다. csv, txt 또는 html을 입력하세요.`,
+          `오류: 지원하지 않는 출력 형식 '${invalidFormats.join(', ')}'입니다. csv, txt 또는 html을 입력하세요.`,
         );
       }
 
@@ -128,7 +142,7 @@ cli
         process.exit(1);
       }
 
-      console.error(`형식: ${format}`);
+      console.error(`형식: ${formats.join(', ')}`);
       console.error(`저장소: ${repos.join(', ')}`);
 
       const githubService = createGitHubService(token);
@@ -161,7 +175,7 @@ cli
 
           const subDir = `${owner}-${repoName}`;
           const written = await writeOutputFiles(
-            format as SupportedFormat,
+            formats as SupportedFormat[],
             {
               userScores: singleUserScores,
               repoSummaries: [repoSummary],
@@ -193,7 +207,7 @@ cli
       );
 
       const written = await writeOutputFiles(
-        format as SupportedFormat,
+        formats as SupportedFormat[],
         {
           userScores,
           repoSummaries,

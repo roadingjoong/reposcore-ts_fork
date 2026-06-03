@@ -283,7 +283,7 @@ export const buildHtmlReport = (data: ScoreOutputData): string => {
  * @returns 작성이 완료된 파일들의 경로 정보를 담은 Promise 객체
  */
 export const writeOutputFiles = async (
-  format: SupportedFormat,
+  formats: ReadonlyArray<SupportedFormat>,
   data: ScoreOutputData,
   outputDir: string = DEFAULT_OUTPUT_DIR,
   subDir?: string,
@@ -295,20 +295,24 @@ export const writeOutputFiles = async (
 
   await Bun.write(paths.csv, buildUserScoresCsv(data.userScores));
 
-  if (format === 'txt') {
+  const written: {csv: string; txt?: string; html?: string} = {
+    csv: paths.csv,
+  };
+
+  if (formats.includes('txt')) {
     // 💡 기존 저장소 요약 하단에 사용자별 점수 요약본을 개행('\n')으로 결합하여 저장합니다.
     const repoSummariesTxt = buildRepoSummariesTxt(data.repoSummaries);
     const userScoresTxt = buildUserScoresTxt(data.userScores);
 
     await Bun.write(paths.txt, repoSummariesTxt + '\n' + userScoresTxt);
-    return {csv: paths.csv, txt: paths.txt};
+    written.txt = paths.txt;
   }
 
-  if (format === 'html') {
+  if (formats.includes('html')) {
     const htmlReport = buildHtmlReport(data);
     await Bun.write(paths.html, htmlReport);
-    return {csv: paths.csv, html: paths.html};
+    written.html = paths.html;
   }
 
-  return {csv: paths.csv};
+  return written;
 };

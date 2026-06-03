@@ -297,12 +297,12 @@ export const createGitHubService = (token: string) => {
         await githubGraphQL<IssueSearchResponse>(
           `
           query(
-            $query: String!
+            $searchQuery: String!
             $pageSize: Int!
             $cursor: String
           ) {
             search(
-              query: $query
+              query: $searchQuery
               type: ISSUE
               first: $pageSize
               after: $cursor
@@ -328,7 +328,7 @@ export const createGitHubService = (token: string) => {
           }
           `,
           {
-            query: `repo:${owner}/${repo} is:issue updated:>=${since}`,
+            searchQuery: `repo:${owner}/${repo} is:issue updated:>=${since}`,
             pageSize: PAGE_SIZE,
             cursor,
           },
@@ -362,12 +362,12 @@ export const createGitHubService = (token: string) => {
         await githubGraphQL<PullRequestSearchResponse>(
           `
           query(
-            $query: String!
+            $searchQuery: String!
             $pageSize: Int!
             $cursor: String
           ) {
             search(
-              query: $query
+              query: $searchQuery
               type: ISSUE
               first: $pageSize
               after: $cursor
@@ -393,7 +393,7 @@ export const createGitHubService = (token: string) => {
           }
           `,
           {
-            query: `repo:${owner}/${repo} is:pr is:merged updated:>=${since}`,
+            searchQuery: `repo:${owner}/${repo} is:pr is:merged updated:>=${since}`,
             pageSize: PAGE_SIZE,
             cursor,
           },
