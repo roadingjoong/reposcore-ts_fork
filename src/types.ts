@@ -39,9 +39,9 @@ export interface BaseRecord {
    */
   author: {login: string} | null;
   /**
-   * 부착된 라벨 목록. 라벨이 없거나 응답에 포함되지 않으면 `null`입니다.
+   * 부착된 라벨 목록. 라벨이 없으면 빈 배열(`nodes: []`)로 표현합니다.
    */
-  labels: {nodes: {name: string}[]} | null;
+  labels: {nodes: {name: string}[]};
   /**
    * 라벨에서 정규화된 기여 분류. 인식 가능한 라벨이 없으면 `none`입니다.
    */

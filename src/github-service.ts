@@ -72,13 +72,8 @@ export const categorizeLabels = (labels: string[]): ContributionLabel => {
   return 'none';
 };
 
-const extractLabelNames = (
-  labels: {nodes: {name: string}[]} | null,
-): string[] => {
-  if (!labels || !labels.nodes) return [];
-
-  return labels.nodes.map(node => node.name).filter(name => Boolean(name));
-};
+const extractLabelNames = (labels: {nodes: {name: string}[]}): string[] =>
+  labels.nodes.map(node => node.name).filter(name => Boolean(name));
 
 const toIssueRecord = (
   raw: RawIssue & {stateReason?: string | null},
