@@ -70,6 +70,10 @@ interface PullRequestSearchResponse {
   };
 }
 
+interface GetDetailedRepoDataOptions {
+  since?: string;
+}
+
 export const normalizeLabel = (label: string): ContributionLabel => {
   const key = label.toLowerCase().replace(/[-_\s]/g, '');
   if (key === 'feat' || key === 'feature' || key === 'enhancement')
@@ -426,6 +430,7 @@ export const createGitHubService = (token: string, pageSize = 100) => {
     owner: string,
     repo: string,
     useCache = true,
+    options?: GetDetailedRepoDataOptions,
   ): Promise<DetailedRepoData> => {
     const analysisStartedAt = new Date().toISOString();
     const cached = await loadCache<DetailedRepoData>(owner, repo, !useCache);
@@ -446,9 +451,11 @@ export const createGitHubService = (token: string, pageSize = 100) => {
       return data;
     }
 
+    const since = options?.since ?? cached.lastAnalyzedAt;
+
     const [updatedIssues, updatedPrs] = await Promise.all([
-      getUpdatedValidIssues(owner, repo, cached.lastAnalyzedAt),
-      getUpdatedMergedPullRequests(owner, repo, cached.lastAnalyzedAt),
+      getUpdatedValidIssues(owner, repo, since),
+      getUpdatedMergedPullRequests(owner, repo, since),
     ]);
 
     const data: DetailedRepoData = {
@@ -504,7 +511,6 @@ export const createGitHubService = (token: string, pageSize = 100) => {
         keyword: string;
         createdAt: string;
       } | null = null;
-      // 최신 댓글부터 확인하여 가장 최근 선점 선언을 찾습니다.
       const comments = [...node.comments.nodes].reverse();
 
       for (const comment of comments) {

@@ -48,6 +48,7 @@ cli
     default: 'output',
   })
   .option('--no-cache', '캐시를 무시하고 GitHub API를 새로 호출합니다')
+  .option('--since <since>', '캐시 이후 증분 수집 기준 시점 ISO8601')
   .option('--sort-by <field>', '정렬 기준 (score, id)', {
     default: 'score',
   })
@@ -69,6 +70,7 @@ cli
         format: string;
         cache: boolean;
         outputDir?: string;
+        since?: string;
         sortBy: string;
         sortOrder: string;
         claims?: boolean;
@@ -85,14 +87,15 @@ cli
         .split(',')
         .map(format => format.trim())
         .filter(Boolean);
-      const useCache = options.cache; // --no-cache 전달 시 false
+      const useCache = options.cache;
       const outputDir = options.outputDir || 'output';
+      const since = options.since;
       const sortBy = String(options.sortBy || 'score').toLowerCase();
       const sortOrder = String(options.sortOrder || 'desc').toLowerCase();
 
       const rawPageSize =
         options.pageSize === '$PAGE_SIZE'
-          ? Bun.env.PAGE_SIZE ?? 100
+          ? (Bun.env.PAGE_SIZE ?? 100)
           : options.pageSize;
       const pageSize = Number(rawPageSize);
 
@@ -184,7 +187,10 @@ cli
         process.exit(1);
       }
 
-      const githubService = createGitHubService(token, pageSize) as FullGitHubService;
+      const githubService = createGitHubService(
+        token,
+        pageSize,
+      ) as FullGitHubService;
 
       if (isClaimsMode) {
         for (const {repoPath, owner, repoName} of parsedRepos) {
@@ -218,6 +224,7 @@ cli
             owner,
             repoName,
             useCache,
+            {since},
           );
 
           const repoData = ScoreCalculator.calculateRepoData(
