@@ -26,6 +26,7 @@ interface ClaimsPageResponse {
           }[];
         };
       }[];
+      pageInfo: PageInfo;
     };
   };
 }
@@ -74,6 +75,13 @@ interface GetDetailedRepoDataOptions {
   since?: string;
 }
 
+const PAGE_SIZE = 100;
+
+/**
+ * GitHub 라벨명을 내부 기여 카테고리로 정규화합니다.
+ * @param label 정규화할 GitHub 라벨명
+ * @returns 정규화된 기여 카테고리
+ */
 export const normalizeLabel = (label: string): ContributionLabel => {
   const key = label.toLowerCase().replace(/[-_\s]/g, '');
   if (key === 'feat' || key === 'feature' || key === 'enhancement')
@@ -84,6 +92,11 @@ export const normalizeLabel = (label: string): ContributionLabel => {
   return 'none';
 };
 
+/**
+ * 여러 라벨 중 기여 카테고리에 해당하는 첫 번째 라벨을 찾습니다.
+ * @param labels GitHub 라벨명 목록
+ * @returns 분류된 기여 카테고리
+ */
 export const categorizeLabels = (labels: string[]): ContributionLabel => {
   for (const label of labels) {
     const category = normalizeLabel(label);
@@ -95,9 +108,19 @@ export const categorizeLabels = (labels: string[]): ContributionLabel => {
   return 'none';
 };
 
+/**
+ * GitHub 라벨 노드 목록에서 라벨명만 추출합니다.
+ * @param labels GitHub GraphQL 응답의 라벨 노드 목록
+ * @returns 라벨명 문자열 배열
+ */
 const extractLabelNames = (labels: {nodes: {name: string}[]}): string[] =>
   labels.nodes.map(node => node.name).filter(name => Boolean(name));
 
+/**
+ * GitHub Issue 원본 데이터를 내부 IssueRecord 형식으로 변환합니다.
+ * @param raw GitHub GraphQL 응답에서 가져온 Issue 데이터
+ * @returns 내부에서 사용하는 IssueRecord 객체
+ */
 const toIssueRecord = (
   raw: RawIssue & {stateReason?: string | null},
 ): IssueRecord => {
@@ -114,6 +137,11 @@ const toIssueRecord = (
   };
 };
 
+/**
+ * GitHub Pull Request 원본 데이터를 내부 PRRecord 형식으로 변환합니다.
+ * @param raw GitHub GraphQL 응답에서 가져온 Pull Request 데이터
+ * @returns 내부에서 사용하는 PRRecord 객체
+ */
 const toPrRecord = (raw: RawPullRequest): PRRecord => {
   return {
     number: raw.number,
@@ -129,6 +157,12 @@ const toPrRecord = (raw: RawPullRequest): PRRecord => {
   };
 };
 
+/**
+ * 번호를 기준으로 기존 캐시 데이터와 새로 조회한 데이터를 병합합니다.
+ * @param cachedItems 캐시에 저장되어 있던 기존 항목 목록
+ * @param updatedItems 새로 조회한 최신 항목 목록
+ * @returns 번호 기준으로 병합된 항목 목록
+ */
 const mergeByNumber = <T extends {number: number}>(
   cachedItems: T[],
   updatedItems: T[],
@@ -146,6 +180,9 @@ const mergeByNumber = <T extends {number: number}>(
   return [...itemMap.values()].sort((a, b) => b.number - a.number);
 };
 
+/**
+ * 기여 카테고리별 개수를 나타내는 객체입니다.
+ */
 export interface CategoryCounts {
   feature: number;
   bug: number;
@@ -154,6 +191,11 @@ export interface CategoryCounts {
   none: number;
 }
 
+/**
+ * 기여 기록 목록을 카테고리별로 집계합니다.
+ * @param records 카테고리 정보가 포함된 기여 기록 목록
+ * @returns 카테고리별 개수
+ */
 export const countByCategory = (
   records: ReadonlyArray<{category: ContributionLabel}>,
 ): CategoryCounts => {
@@ -172,13 +214,25 @@ export const countByCategory = (
   return counts;
 };
 
-export const createGitHubService = (token: string, pageSize = 100) => {
+/**
+ * GitHub GraphQL API를 사용하는 서비스 객체를 생성합니다.
+ * @param token GitHub Personal Access Token
+ * @returns 저장소 상세 데이터와 이슈 선점 현황을 조회하는 서비스 객체
+ */
+export const createGitHubService = (token: string) => {
   const githubGraphQL = graphql.defaults({
     headers: {
       authorization: `token ${token}`,
     },
   });
 
+  /**
+   * 저장소의 유효한 이슈를 모두 조회합니다.
+   * OPEN 상태이거나 완료 처리된 이슈만 수집합니다.
+   * @param owner 저장소 소유자
+   * @param repo 저장소 이름
+   * @returns 유효한 이슈 목록
+   */
   const getAllValidIssues = async (
     owner: string,
     repo: string,
@@ -222,7 +276,7 @@ export const createGitHubService = (token: string, pageSize = 100) => {
             }
           }
           `,
-          {owner, repo, pageSize, cursor},
+          {owner, repo, pageSize: PAGE_SIZE, cursor},
         );
 
       const connection: IssuePageResponse['repository']['issues'] =
@@ -242,6 +296,12 @@ export const createGitHubService = (token: string, pageSize = 100) => {
     return issues;
   };
 
+  /**
+   * 저장소의 병합된 Pull Request를 모두 조회합니다.
+   * @param owner 저장소 소유자
+   * @param repo 저장소 이름
+   * @returns 병합된 Pull Request 목록
+   */
   const getAllMergedPullRequests = async (
     owner: string,
     repo: string,
@@ -286,7 +346,7 @@ export const createGitHubService = (token: string, pageSize = 100) => {
             }
           }
           `,
-          {owner, repo, pageSize, cursor},
+          {owner, repo, pageSize: PAGE_SIZE, cursor},
         );
 
       const connection: PullRequestPageResponse['repository']['pullRequests'] =
@@ -301,6 +361,14 @@ export const createGitHubService = (token: string, pageSize = 100) => {
     return prs;
   };
 
+  /**
+   * 지정한 시점 이후 변경된 유효 이슈를 조회합니다.
+   * OPEN 상태이거나 완료 처리된 이슈만 수집합니다.
+   * @param owner 저장소 소유자
+   * @param repo 저장소 이름
+   * @param since 변경 내역을 조회할 기준 시각
+   * @returns 기준 시각 이후 변경된 유효 이슈 목록
+   */
   const getUpdatedValidIssues = async (
     owner: string,
     repo: string,
@@ -347,7 +415,7 @@ export const createGitHubService = (token: string, pageSize = 100) => {
           `,
           {
             searchQuery: `repo:${owner}/${repo} is:issue updated:>=${since}`,
-            pageSize,
+            pageSize: PAGE_SIZE,
             cursor,
           },
         );
@@ -366,6 +434,13 @@ export const createGitHubService = (token: string, pageSize = 100) => {
     return issues;
   };
 
+  /**
+   * 지정한 시점 이후 변경된 병합 Pull Request를 조회합니다.
+   * @param owner 저장소 소유자
+   * @param repo 저장소 이름
+   * @param since 변경 내역을 조회할 기준 시각
+   * @returns 기준 시각 이후 변경된 병합 Pull Request 목록
+   */
   const getUpdatedMergedPullRequests = async (
     owner: string,
     repo: string,
@@ -412,7 +487,7 @@ export const createGitHubService = (token: string, pageSize = 100) => {
           `,
           {
             searchQuery: `repo:${owner}/${repo} is:pr is:merged updated:>=${since}`,
-            pageSize,
+            pageSize: PAGE_SIZE,
             cursor,
           },
         );
@@ -426,6 +501,15 @@ export const createGitHubService = (token: string, pageSize = 100) => {
     return prs;
   };
 
+  /**
+   * 저장소의 이슈와 병합된 Pull Request 상세 데이터를 조회합니다.
+   * 캐시가 있으면 마지막 분석 시점 이후의 변경분만 조회해 병합하고,
+   * 캐시가 없으면 전체 데이터를 새로 수집합니다.
+   * @param owner 저장소 소유자
+   * @param repo 저장소 이름
+   * @param useCache 캐시 사용 여부
+   * @returns 저장소의 상세 기여 데이터
+   */
   const getDetailedRepoData = async (
     owner: string,
     repo: string,
@@ -470,6 +554,11 @@ export const createGitHubService = (token: string, pageSize = 100) => {
 
   /**
    * 열린 이슈와 최근 댓글을 조회하여 선점 키워드가 포함된 이슈를 분류합니다.
+   * @param owner 저장소 소유자
+   * @param repo 저장소 이름
+   * @param keywords 선점 여부를 판단할 키워드 목록
+   * @param repoPath 출력에 사용할 저장소 경로
+   * @returns 선점된 이슈와 선점되지 않은 이슈 목록
    */
   const getRecentClaimsData = async (
     owner: string,
@@ -477,68 +566,82 @@ export const createGitHubService = (token: string, pageSize = 100) => {
     keywords: string[],
     repoPath: string,
   ): Promise<RepoClaims> => {
-    const response = await githubGraphQL<ClaimsPageResponse>(
-      `
-      query($owner: String!, $repo: String!) {
-        repository(owner: $owner, name: $repo) {
-          issues(first: 50, states: OPEN, orderBy: {field: CREATED_AT, direction: DESC}) {
-            nodes {
-              number
-              title
-              url
-              comments(last: 10) {
-                nodes {
-                  body
-                  author { login }
-                  createdAt
+    const claimed: ClaimInfo[] = [];
+    const unclaimed: ClaimInfo[] = [];
+    let cursor: string | null = null;
+    let hasNextPage = true;
+
+    while (hasNextPage) {
+      const response: ClaimsPageResponse = await githubGraphQL<ClaimsPageResponse>(
+        `
+        query($owner: String!, $repo: String!, $pageSize: Int!, $cursor: String) {
+          repository(owner: $owner, name: $repo) {
+            issues(first: $pageSize, after: $cursor, states: OPEN, orderBy: {field: CREATED_AT, direction: DESC}) {
+              nodes {
+                number
+                title
+                url
+                comments(last: 10) {
+                  nodes {
+                    body
+                    author { login }
+                    createdAt
+                  }
                 }
+              }
+              pageInfo {
+                hasNextPage
+                endCursor
               }
             }
           }
         }
-      }
-      `,
-      {owner, repo},
-    );
+        `,
+        {owner, repo, pageSize: PAGE_SIZE, cursor},
+      );
 
-    const nodes = response.repository.issues.nodes;
-    const claimed: ClaimInfo[] = [];
-    const unclaimed: ClaimInfo[] = [];
+      const connection = response.repository.issues;
+      const nodes = connection.nodes;
 
-    for (const node of nodes) {
-      let matchedClaim: {
-        claimer: string;
-        keyword: string;
-        createdAt: string;
-      } | null = null;
-      const comments = [...node.comments.nodes].reverse();
+      for (const node of nodes) {
+        let matchedClaim: {
+          claimer: string;
+          keyword: string;
+          createdAt: string;
+        } | null = null;
+        
+        const comments = [...node.comments.nodes].reverse();
 
-      for (const comment of comments) {
-        const foundKeyword = keywords.find(k => comment.body.includes(k));
-        if (foundKeyword) {
-          matchedClaim = {
-            claimer: comment.author?.login ?? 'unknown',
-            keyword: foundKeyword,
-            createdAt: comment.createdAt,
-          };
-          break;
+        for (const comment of comments) {
+          const foundKeyword = keywords.find(k => comment.body.includes(k));
+          if (foundKeyword) {
+            matchedClaim = {
+              claimer: comment.author?.login ?? 'unknown',
+              keyword: foundKeyword,
+              createdAt: comment.createdAt,
+            };
+            break;
+          }
+        }
+
+        const info: ClaimInfo = {
+          issueNumber: node.number,
+          title: node.title,
+          url: node.url,
+          claimedBy: matchedClaim?.claimer ?? null,
+          matchedKeyword: matchedClaim?.keyword ?? null,
+          claimedAt: matchedClaim?.createdAt ?? null,
+      };
+
+        if (matchedClaim) {
+          claimed.push(info);
+        } else {
+          unclaimed.push(info);
         }
       }
 
-      const info: ClaimInfo = {
-        issueNumber: node.number,
-        title: node.title,
-        url: node.url,
-        claimedBy: matchedClaim?.claimer ?? null,
-        matchedKeyword: matchedClaim?.keyword ?? null,
-        claimedAt: matchedClaim?.createdAt ?? null,
-      };
-
-      if (matchedClaim) {
-        claimed.push(info);
-      } else {
-        unclaimed.push(info);
-      }
+      cursor = connection.pageInfo.endCursor;
+      hasNextPage = connection.pageInfo.hasNextPage && cursor !== null;
     }
 
     return {repoPath, claimed, unclaimed};

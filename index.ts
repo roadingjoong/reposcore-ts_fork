@@ -23,6 +23,11 @@ import {type FullGitHubService} from './src/types';
 const cli = cac('reposcore-ts');
 cli.version(pkg.version);
 
+/**
+ * 저장소 경로 문자열을 소유자와 저장소 이름으로 분리합니다.
+ * @param repoPath owner/repo 형식의 저장소 경로
+ * @returns 저장소 소유자와 이름 정보, 형식이 올바르지 않으면 null
+ */
 function parseRepoPath(repoPath: string) {
   const parts = repoPath.split('/');
 
@@ -78,6 +83,7 @@ cli
         pageSize?: number | string;
       },
     ) => {
+      // CLI 옵션값을 내부에서 사용할 형태로 정규화합니다.
       const token =
         options.token === '$GITHUB_TOKEN'
           ? Bun.env.GITHUB_TOKEN || ''
@@ -102,6 +108,7 @@ cli
       const errors: string[] = [];
 
       const isClaimsMode = !!options.claims;
+      // 이슈 선점 여부를 판단하기 위한 기본 키워드 목록입니다.
       const DEFAULT_KEYWORDS = [
         '제가 하겠습니다',
         '진행하겠습니다',
@@ -123,6 +130,7 @@ cli
         repoName: string;
       }[] = [];
 
+      // CLI 실행에 필요한 옵션과 입력값을 검증합니다.
       if (!token) {
         errors.push(
           '오류: GitHub 토큰이 필요합니다. --token 옵션 또는 GITHUB_TOKEN 환경 변수를 설정하세요.',
@@ -163,6 +171,7 @@ cli
         );
       }
 
+      // 입력받은 저장소 경로를 owner/repo 형식으로 파싱합니다.
       for (const repoPath of repos) {
         const parsedRepo = parseRepoPath(repoPath);
 
@@ -178,6 +187,7 @@ cli
         });
       }
 
+      // 검증 중 발견된 오류를 출력하고 실행을 중단합니다.
       if (errors.length > 0) {
         for (const error of errors) {
           console.error(error);
@@ -192,6 +202,7 @@ cli
         pageSize,
       ) as FullGitHubService;
 
+      // --claims 옵션이 있으면 점수 계산 대신 이슈 선점 현황만 조회합니다.
       if (isClaimsMode) {
         for (const {repoPath, owner, repoName} of parsedRepos) {
           try {
@@ -218,6 +229,7 @@ cli
       const repoDataList: RepoData[] = [];
       const repoSummaries: RepoSummary[] = [];
 
+      // 저장소별 GitHub 데이터를 수집하고 개별 결과 파일을 생성합니다.
       for (const {repoPath, owner, repoName} of parsedRepos) {
         try {
           const detailed = await githubService.getDetailedRepoData(
@@ -227,6 +239,7 @@ cli
             {since},
           );
 
+          // 수집한 데이터를 바탕으로 저장소별 점수와 요약 정보를 계산합니다.
           const repoData = ScoreCalculator.calculateRepoData(
             detailed,
             owner,
@@ -243,6 +256,7 @@ cli
             sortOrder as SupportedSortOrder,
           );
 
+          // 저장소별 사용자 점수와 요약 정보를 파일로 출력합니다.
           const subDir = `${owner}-${repoName}`;
           const written = await writeOutputFiles(
             formats as SupportedFormat[],
@@ -270,12 +284,14 @@ cli
         }
       }
 
+      // 모든 저장소 데이터를 합산하여 최종 사용자 점수를 계산합니다.
       const userScores = sortUserScores(
         ScoreCalculator.calculateUserScores(repoDataList),
         sortBy as SupportedSortBy,
         sortOrder as SupportedSortOrder,
       );
 
+      // 합산된 사용자 점수와 저장소 요약 정보를 파일로 출력합니다.
       const written = await writeOutputFiles(
         formats as SupportedFormat[],
         {
